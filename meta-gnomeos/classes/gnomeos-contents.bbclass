@@ -207,6 +207,21 @@ EOF
 	# By default, /home -> var/home -> ../sysroot/home
 	ln -s var/home home
 
+        # Resolve alternatives of the form "toolname.package => toolname", such as
+        # e.g. cat.coreutils -> cat (but not ones of the form busybox -> cat).
+        # This makes for cleaner images, and we throw away the alternatives
+        # data anyway, so the links are useless.
+        for alt in ${IMAGE_ROOTFS}/var/lib/opkg/alternatives/*; do
+            name=`basename $alt`
+            link=`head -n 1 $alt`
+            prio=`sed -ne "1!p" $alt | sed -e "s/\(.*\) \(.*\)/\2 \1/g" | sort -nr | head -n 1 | sed 's/ [^ ]*$//'`
+            path=`grep "${prio}$" $alt | tail -n 1 | sed 's/ [^ ]*$//'`
+            path_basename=`basename $path`
+            if [ "${path_basename/$name.}" != "$path_basename" ] ; then
+               mv -f ${IMAGE_ROOTFS}/$path ${IMAGE_ROOTFS}/$link
+            fi
+        done
+
 	# These are the only directories we take from the OE build
         mv ${IMAGE_ROOTFS}/usr .
 	# Except /usr/local -> ../var/usrlocal
